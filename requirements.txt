@@ -1,0 +1,34 @@
+# Core scientific stack
+numpy
+scipy
+pandas
+
+#file loaders
+openpyxl
+
+# Neuroimagerie
+nibabel
+
+# EEG support (si tu ajoutes MNE)
+mne
+
+# Deep learning
+torch
+torchvision
+scikit-learn
+
+# Visualisation
+matplotlib
+seaborn
+
+# Optionnel pour les chargements
+tqdm
+
+# Optionnel : TSNE/PCA rapide
+umap-learn
+
+# Sauvegarde modèles, I/O avancé
+joblib
+
+#Pretrain Neural Network
+monai
