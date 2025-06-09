@@ -153,24 +153,45 @@ def train_model(model, X_train, y_train, X_val, y_val, batch_size=32, epochs=20,
     return history
 
 
+# Metrics 
+
 def accuracy_metric(preds, labels):
     preds_class = preds.argmax(dim=1)   
     correct = (preds_class == labels).sum().item()
     return correct / labels.size(0)
 
+def confident_accuracy(preds, labels, threshold=0.8):
+    probs = torch.softmax(preds, dim=1)
+    confidences, pred_classes = probs.max(dim=1)
+    
+    correct = (pred_classes == labels)
+    confident = (confidences >= threshold)
+
+    # Compte uniquement les prédictions correctes et confiantes
+    selected = correct & confident
+    return selected.float().sum().item() / len(labels)
+
+
+def certainty_gap(preds, labels):
+    probs = torch.softmax(preds, dim=1)
+    target_probs = probs[range(len(labels)), labels]
+    return (1 - target_probs).mean()  
+
+
 
 if __name__ == "__main__":
 
     #device = "cuda" if torch.cuda.is_available() else ("mps" if torch.mps.is_available() else "cpu")
-    device = "cpu"
+    device = "cuda"
     print(device)
 
     model = Simple3DCNN(num_classes=3).to(device)
     print(model)
 
-    loader = Loader.PETScanLoader("/Volumes/UBUNTU 22_0/PETdata/data/", "zscore")
+    loader = Loader.PETScanLoader("../../Desktop/Cancer_pain_data/PETdata/data/", "zscore")
     scan = loader.load_scan("PHC64_4532.nii")
     tensor = tensorizeScan(scan)
+    tensor = tensor.to("cuda")
 
     with torch.no_grad():
         output = model(tensor)
@@ -184,13 +205,14 @@ if __name__ == "__main__":
     labelisedData = loader.load_all_labelised()
 
     #Enlarge the Dataset with geometrical modifications
-    enlargementMethod = ['flip_x', 'flip_y', 'noise']
+    enlargementMethod = ['flip_x', 'flip_y', 'flip_z', 'noise', 'adjust_contrast', 'blur']
     EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 3)
 
     # Disassociate the label from the example
     X, Y = make_batch(EnlargedData)
     print("Shape X before train_test_split:", X.shape)
     X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=42)
+    print('shape de X_train :', X_train.shape)
 
     history = train_model(
     model,
@@ -198,43 +220,48 @@ if __name__ == "__main__":
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=10,
-    epochs=30,
+    batch_size=30,
+    epochs=50,
     criterion = nn.CrossEntropyLoss(),
     optimizer=optim.Adam(model.parameters(), lr=0.005),
-    metric=accuracy_metric
+    metric=confident_accuracy,
+    device=device
 )
     
-    plt.figure(1)
-    plt.title("Mean Absolute Error")
-    plt.xlabel("#Epoch")
-    plt.plot(history['score'], label='Training Score')
-    plt.plot(history['val_score'], label='Validation Score')
+    # Premier graphique
+    plt.figure()
+    plt.plot(history['loss'], label='Train Loss')
+    plt.plot(history['val_loss'], label='Val Loss')
+    plt.title("Loss over epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
     plt.legend()
+    plt.savefig("loss_plot.png") 
 
-    plt.figure(2)
-    plt.title("Loss")
-    plt.xlabel("#Epoch")
-    plt.plot(history['loss'], label='Training Loss')
-    plt.plot(history['val_loss'], label='Validation Loss')
+    # Deuxième graphique
+    plt.figure()
+    plt.plot(history['score'], label='Train Accuracy')
+    plt.plot(history['val_score'], label='Val Accuracy')
+    plt.title("Accuracy over epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
     plt.legend()
+    plt.savefig("accuracy_plot.png")  
 
-    plt.show()
-
-    from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
-    y_pred = []
-    y_true = []
-
-    model.eval()
-    with torch.no_grad():
-        for x_batch, y_batch in DataLoader(TensorDataset(X_val, y_val), batch_size=6):
-            preds = model(x_batch.to(device))
-            pred_classes = preds.argmax(dim=1).cpu()
-            y_pred.extend(pred_classes)
-            y_true.extend(y_batch)
-
-    cm = confusion_matrix(y_true, y_pred)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    disp.plot()
-    plt.show()
+    #from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+#
+    #y_pred = []
+    #y_true = []
+#
+    #model.eval()
+    #with torch.no_grad():
+    #    for x_batch, y_batch in DataLoader(TensorDataset(X_val, y_val), batch_size=6):
+    #        preds = model(x_batch.to(device))
+    #        pred_classes = preds.argmax(dim=1).cpu()
+    #        y_pred.extend(pred_classes)
+    #        y_true.extend(y_batch)
+#
+    #cm = confusion_matrix(y_true, y_pred)
+    #disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    #disp.plot()
+    #plt.show()
