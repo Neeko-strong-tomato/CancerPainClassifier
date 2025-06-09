@@ -14,10 +14,10 @@ def generate_resnet18_model(in_channels=1):
     model = resnet.generate_model(model_depth=18,
                                   n_input_channels=in_channels,
                                   shortcut_type='B',
-                                  num_classes=400)  # to be modified
+                                  num_classes=400)  # Dummy output classes, we'll change the head
 
     # Charger les poids préentraînés
-    weights = torch.load("../storage/resnet_18_23dataset.pth", map_location='cpu')
+    weights = torch.load("pretrained/resnet_18_23dataset.pth", map_location='cpu')
     new_state_dict = OrderedDict()
     for k, v in weights['state_dict'].items():
         name = k.replace("module.", "")  # supprimer "module." pour compatibilité
@@ -50,66 +50,43 @@ class MedicalNetClassifier(nn.Module):
         self.model = self._load_backbone(pretrained, weights_path)
 
         # Modifier la tête
-        self.backbone = self._load_backbone(pretrained, weights_path)
         if head_layers == 'replace':
             self._replace_head()
         elif head_layers == 'extend':
             self._extend_head()
 
         self.to(device)
-        
-    import sys
-    sys.path.append("/home/neeko/dev/MedicalNet")
-    
-    
 
     def _load_backbone(self, pretrained, weights_path):
-
-        from models.generate_model import generate_model
-
-        model = generate_model(
-            model_depth=18,  # tu peux rendre ça paramétrable si besoin
+        import modeles.storage.medicalnetModel as medicalnetModel
+        model = medicalnetModel.generate_model(
+            model_depth=18,
             n_input_channels=self.in_channels,
-            num_classes=self.num_classes,
             shortcut_type='B',
-            no_cuda=not torch.cuda.is_available()
+            num_classes=400  # Dummy: remplacé ensuite
         )
-
-        if hasattr(model, 'conv_seg'):
-            print("[INFO] Suppression de conv_seg")
-            del model.conv_seg
-
         if pretrained:
             print("[INFO] Chargement des poids MedicalNet...")
             weights = torch.load(weights_path, map_location='cpu')
             new_state_dict = OrderedDict()
             for k, v in weights['state_dict'].items():
                 new_state_dict[k.replace("module.", "")] = v
-            model.load_state_dict(new_state_dict, strict=False)  # `strict=False` = tolère les mismatchs
+            model.load_state_dict(new_state_dict)
             print("[INFO] Poids chargés.")
-
         return model
 
-
     def _replace_head(self):
-        in_features = 512  # valeur typique pour ResNet18 3D
-        self.head = nn.Sequential(
-            nn.AdaptiveAvgPool3d((1, 1, 1)),
-            nn.Flatten(),
-            nn.Linear(in_features, 400),
+        self.model.fc = nn.Sequential(
+            nn.Linear(self.model.fc.in_features, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(400, 256),
-            nn.ReLU(),
             nn.Linear(256, self.num_classes)
         )
 
     def _extend_head(self):
-        in_features = 512  # même que replace
-        self.head = nn.Sequential(
-            nn.AdaptiveAvgPool3d((1, 1, 1)),
-            nn.Flatten(),
-            nn.Linear(in_features, 400),
+        old_fc = self.model.fc
+        self.model.fc = nn.Sequential(
+            old_fc,
             nn.ReLU(),
             nn.Dropout(0.3),
             nn.Linear(400, 256),
@@ -117,14 +94,8 @@ class MedicalNetClassifier(nn.Module):
             nn.Linear(256, self.num_classes)
         )
 
-
-
     def forward(self, x):
-        x = self.backbone(x)
-        x = self.head(x)  
-        return x
-
-
+        return self.model(x)
 
     def predict(self, scan: Union[torch.Tensor, list, np.ndarray]):
         self.eval()
@@ -160,9 +131,9 @@ def freeze_model_layers(model, freeze_up_to=0):
 
 
 
-def train_MedNet_model(model, 
+def train_monai_model(model, 
                       X_train, y_train, X_val, y_val,
-                      criterion=None, optimizer=None, metric=None,
+                      criterion=None, optimizer=None, metric_fn=None,
                       batch_size=4, epochs=20,
                       device='cpu',
                       freeze_up_to=0):
@@ -198,7 +169,7 @@ def train_MedNet_model(model,
             optimizer.zero_grad()
             preds = model(x_batch)
             loss = criterion(preds, y_batch)
-            score = metric(preds, y_batch)
+            score = metric_fn(preds, y_batch)
 
             loss.backward()
             optimizer.step()
@@ -215,7 +186,7 @@ def train_MedNet_model(model,
                 x_batch, y_batch = x_batch.to(device), y_batch.to(device).long()
                 preds = model(x_batch)
                 loss = criterion(preds, y_batch)
-                score = metric(preds, y_batch)
+                score = metric_fn(preds, y_batch)
 
                 val_loss += loss.item() * x_batch.size(0)
                 val_score += score * x_batch.size(0)
@@ -290,7 +261,7 @@ if __name__ == '__main__' :
 
     print("===============================================================")
 
-    device = "cuda"
+    device = "cpu"
     print(device)
 
     model = MedicalNetClassifier(
@@ -299,36 +270,33 @@ if __name__ == '__main__' :
         pretrained=True,
         head_layers='extend',
         device="cuda",
-        weights_path="modeles/storage/resnet_18_23dataset.pth"
+        weights_path="pretrained/resnet_18_23dataset.pth"
     )
-    model.to(device)
+    model.todevice()
 
 
     # Load labelized data
-    loader = Loader.PETScanLoader("../../Desktop/Cancer_pain_data/PETdata/data/", "zscore")
-    labelisedData = loader.load_all_labelised()
+    labelisedData = Loader.load_all_labelised()
 
     #Enlarge the Dataset with geometrical modifications
-    enlargementMethod = ['flip_x', 'flip_y', 'blur', 'flip_z', 'adjust_contrast']
-    EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 4)
+    enlargementMethod = ['flip_x', 'flip_y', 'noise']
+    EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 3)
 
     # Disassociate the label from the example
     X, Y = make_batch(EnlargedData)
     print("Shape X before train_test_split:", X.shape)
     X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=42)
-    print("Shape X_train :", X_train.shape)
 
-    history = train_MedNet_model(
+    history = train_monai_model(
     model,
     torch.tensor(X_train).float(),
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=25,
-    epochs=40,
-    device=device,
+    batch_size=10,
+    epochs=30,
     criterion = nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.0005),
+    optimizer=optim.Adam(model.parameters(), lr=0.005),
     metric=confident_accuracy
 )
     
@@ -338,7 +306,6 @@ if __name__ == '__main__' :
     plt.plot(history['score'], label='Training Score')
     plt.plot(history['val_score'], label='Validation Score')
     plt.legend()
-    plt.savefig("accuracy_MedNet_Transfered.png") 
 
     plt.figure(2)
     plt.title("Loss")
@@ -347,4 +314,4 @@ if __name__ == '__main__' :
     plt.plot(history['val_loss'], label='Validation Loss')
     plt.legend()
 
-    plt.savefig("loss_MedNet_Transfered.png") 
+    plt.show()
