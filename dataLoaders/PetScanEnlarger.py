@@ -1,11 +1,14 @@
 import numpy as np
 import itertools
+import scipy
 
 def flip_x(scan): return np.flip(scan, axis=0)
 def flip_y(scan): return np.flip(scan, axis=1)
 def flip_z(scan): return np.flip(scan, axis=2)
 def add_noise(scan, noise_level=0.01): return scan + noise_level * np.random.randn(*scan.shape)
-def rotate_90(scan): return np.rot90(scan, axes=(0, 1))
+def adjust_contrast(scan, factor=1.2): return scan * factor
+def adjust_brightness(scan, offset=0.1): return scan + offset
+def blur(scan, sigma=1.0): return scipy.ndimage.gaussian_filter(scan, sigma=sigma)
 def identity(scan): return scan
 
 AUGMENTATIONS = {
@@ -13,7 +16,9 @@ AUGMENTATIONS = {
     'flip_y': flip_y,
     'flip_z': flip_z,
     'noise': add_noise,
-    'rotate': rotate_90,
+    'adjust_contrast': adjust_contrast,
+    'adjust_brightness': adjust_brightness,
+    'blur': blur,
 }
 
 
