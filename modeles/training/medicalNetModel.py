@@ -17,7 +17,7 @@ def generate_resnet18_model(in_channels=1):
                                   num_classes=400)  # Dummy output classes, we'll change the head
 
     # Charger les poids préentraînés
-    weights = torch.load("pretrained/resnet_18_23dataset.pth", map_location='cpu')
+    weights = torch.load("pretrained/resnet_18_23dataset.pth", map_location='cuda')
     new_state_dict = OrderedDict()
     for k, v in weights['state_dict'].items():
         name = k.replace("module.", "")  # supprimer "module." pour compatibilité
@@ -58,7 +58,9 @@ class MedicalNetClassifier(nn.Module):
         self.to(device)
 
     def _load_backbone(self, pretrained, weights_path):
+        
         import modeles.storage.medicalnetModel as medicalnetModel
+        
         model = medicalnetModel.generate_model(
             model_depth=18,
             n_input_channels=self.in_channels,
@@ -67,32 +69,35 @@ class MedicalNetClassifier(nn.Module):
         )
         if pretrained:
             print("[INFO] Chargement des poids MedicalNet...")
-            weights = torch.load(weights_path, map_location='cpu')
+            weights = torch.load(weights_path, map_location='cuda')
             new_state_dict = OrderedDict()
             for k, v in weights['state_dict'].items():
                 new_state_dict[k.replace("module.", "")] = v
-            model.load_state_dict(new_state_dict)
+            model.load_state_dict(new_state_dict, strict=False)
             print("[INFO] Poids chargés.")
         return model
 
     def _replace_head(self):
-        self.model.fc = nn.Sequential(
-            nn.Linear(self.model.fc.in_features, 256),
+        self.model.conv_seg = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
             nn.Linear(256, self.num_classes)
-        )
+    )
+
 
     def _extend_head(self):
-        old_fc = self.model.fc
-        self.model.fc = nn.Sequential(
-            old_fc,
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(400, 256),
+        old_head = self.model.conv_seg
+        self.model.conv_seg = nn.Sequential( old_head,
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(400, 256),  # ou adapte selon la sortie du old_head
             nn.ReLU(),
             nn.Linear(256, self.num_classes)
-        )
+    )
+
 
     def forward(self, x):
         return self.model(x)
@@ -107,33 +112,46 @@ class MedicalNetClassifier(nn.Module):
             scan = scan.to(self.device)
             output = self.forward(scan)
             pred = torch.argmax(output, dim=1)
-            return pred.cpu().numpy()
+            return pred().numpy()
 
 
 
-def freeze_model_layers(model, freeze_up_to=0):
+def freeze_model_layers(model: MedicalNetClassifier, num_layers_to_freeze: int = 2):
     """
-    Fige les N premières couches d’un modèle MONAI (ou PyTorch classique).
-
-    Args:
-        model: nn.Module
-        freeze_up_to: nombre de couches (int) à figer depuis le début.
+    Freeze the first `num_layers_to_freeze` residual blocks in MedicalNet.
+    `model` is a MedicalNetClassifier with `model.model` = ResNet.
     """
-    count = 0
-    for layer in model.children():
-        if count < freeze_up_to:
-            for param in layer.parameters():
-                param.requires_grad = False
-        else:
-            break
-        count += 1
+    resnet = model.model  # 🔄 raccourci
+
+    # Liste des couches résiduelles à freezer
+    layers = [resnet.layer1, resnet.layer2, resnet.layer3, resnet.layer4]
+
+    for i, layer in enumerate(layers):
+        requires_grad = i >= num_layers_to_freeze
+        for param in layer.parameters():
+            param.requires_grad = requires_grad
+
+    # Toujours laisser les dernières couches actives
+    for param in resnet.conv_seg.parameters():
+        param.requires_grad = True
+
+    # (Optionnel) laisser les premières couches dégelées ?
+    for param in resnet.conv1.parameters():
+        param.requires_grad = True
+    for param in resnet.bn1.parameters():
+        param.requires_grad = True
+
+    # Débogage
+    #print("✅ Frozen layers configuration:")
+    #for name, param in model.named_parameters():
+    #    print(f" - {name}: requires_grad={param.requires_grad}")
 
 
 
 
-def train_monai_model(model, 
+def train_mednet_model(model, 
                       X_train, y_train, X_val, y_val,
-                      criterion=None, optimizer=None, metric_fn=None,
+                      criterion=None, optimizer=None, metric=None,
                       batch_size=4, epochs=20,
                       device='cpu',
                       freeze_up_to=0):
@@ -169,7 +187,7 @@ def train_monai_model(model,
             optimizer.zero_grad()
             preds = model(x_batch)
             loss = criterion(preds, y_batch)
-            score = metric_fn(preds, y_batch)
+            score = metric(preds, y_batch)
 
             loss.backward()
             optimizer.step()
@@ -186,7 +204,7 @@ def train_monai_model(model,
                 x_batch, y_batch = x_batch.to(device), y_batch.to(device).long()
                 preds = model(x_batch)
                 loss = criterion(preds, y_batch)
-                score = metric_fn(preds, y_batch)
+                score = metric(preds, y_batch)
 
                 val_loss += loss.item() * x_batch.size(0)
                 val_score += score * x_batch.size(0)
@@ -209,6 +227,116 @@ def train_monai_model(model,
     return history
 
 
+def train_on_full_data(model, X, Y, 
+                      criterion=None, optimizer=None, metric=None,
+                      batch_size=4, epochs=20,
+                      device='cpu',
+                      freeze_up_to=0):
+
+    epochs = len(X)//batch_size
+
+    model.to(device)
+
+    # Fige les couches souhaitées
+    if freeze_up_to > 0:
+        freeze_model_layers(model, freeze_up_to)
+
+    train_loader = DataLoader(TensorDataset(X, Y), batch_size=batch_size, shuffle=False)
+
+    history = {'loss': [], 'val_loss': [], 'score': [], 'val_score': []}
+
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0.0
+        train_score = 0.0
+
+        for x_batch, y_batch in train_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device).long()
+
+            optimizer.zero_grad()
+            preds = model(x_batch)
+            loss = criterion(preds, y_batch)
+            score = metric(preds, y_batch)
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item() * x_batch.size(0)
+            train_score += score * x_batch.size(0)
+
+        train_loss /= len(train_loader.dataset)
+        train_score /= len(train_loader.dataset)
+
+        history['loss'].append(train_loss)
+        history['score'].append(train_score)
+
+        print(f"Epoch {epoch+1:02}/{epochs} | "
+              f"Loss: {train_loss:.4f} | Score: {train_score:.4f} |")
+    
+    return history
+
+
+from sklearn.model_selection import StratifiedKFold
+
+def cross_validate_model(X, y, model_class, model_args={}, 
+                         train_fn=None, metric_fn=None, 
+                         epochs=10, batch_size=4, n_splits=5, seed=42, device='cpu'):
+    
+    kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    fold_metrics = []
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X, y)):
+        print(f"\n=== Fold {fold+1}/{n_splits} ===")
+
+        # Split data
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
+
+        # Create a fresh model for each fold
+        model = model_class(**model_args).to(device)
+
+        # Define optimizer and loss
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+        criterion = torch.nn.CrossEntropyLoss()
+
+        # Train
+        history = train_fn(
+            model,
+            torch.tensor(X_train).float(), 
+            torch.tensor(y_train).long(),
+            torch.tensor(X_val).float(), 
+            torch.tensor(y_val).long(),
+            criterion,
+            optimizer,
+            metric=metric_fn,
+            epochs=epochs,
+            batch_size=batch_size,
+            device=device
+        )
+
+        # Evaluate
+        #final_val_score = history['val_score'][-1]
+        #fold_metrics.append(final_val_score)
+        #print(f"[Fold {fold+1}] Validation Score: {final_val_score:.4f}")
+        model.eval()
+        with torch.no_grad():
+            X_val_tensor = torch.tensor(X_val).float().to(device)
+            y_val_tensor = torch.tensor(y_val).long().to(device)
+
+            preds = model(X_val_tensor)
+            val_score = metric_fn(preds, y_val_tensor) if metric_fn is not None else 0
+
+        fold_metrics.append(val_score)
+        print(f"[Fold {fold+1}] Validation Score: {val_score:.4f}")
+
+
+    avg = np.mean(fold_metrics)
+    std = np.std(fold_metrics)
+    print(f"\n Cross-Validation Result: {avg:.4f} ± {std:.4f}")
+    return fold_metrics
+
+
 def confident_accuracy(outputs, targets):
     """
     Calcule l'accuracy pondérée par la confiance dans la prédiction correcte.
@@ -226,7 +354,10 @@ def confident_accuracy(outputs, targets):
     
     return confident_correct.mean().item()  # moyenne de la confiance sur les bonnes prédictions
 
-
+def accuracy_metric(preds, labels):
+    preds_class = preds.argmax(dim=1)   
+    correct = (preds_class == labels).sum().item()
+    return correct / labels.size(0)
 
 if __name__ == '__main__' :
 
@@ -261,7 +392,7 @@ if __name__ == '__main__' :
 
     print("===============================================================")
 
-    device = "cpu"
+    device = "cuda"
     print(device)
 
     model = MedicalNetClassifier(
@@ -269,17 +400,18 @@ if __name__ == '__main__' :
         num_classes=3,
         pretrained=True,
         head_layers='extend',
-        device="cuda",
-        weights_path="pretrained/resnet_18_23dataset.pth"
+        device=device,
+        weights_path="modeles/storage/resnet_18_23dataset.pth"
     )
-    model.todevice()
+    model.to(device)
 
 
     # Load labelized data
-    labelisedData = Loader.load_all_labelised()
+    loader = Loader.PETScanLoader("../../Desktop/Cancer_pain_data/PETdata/data/", "zscore")
+    labelisedData = loader.load_all_labelised()
 
     #Enlarge the Dataset with geometrical modifications
-    enlargementMethod = ['flip_x', 'flip_y', 'noise']
+    enlargementMethod = ['flip_x', 'flip_y', 'noise', 'flip_z']
     EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 3)
 
     # Disassociate the label from the example
@@ -287,21 +419,39 @@ if __name__ == '__main__' :
     print("Shape X before train_test_split:", X.shape)
     X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=42)
 
-    history = train_monai_model(
+    #cross_validate_model(X, Y, MedicalNetClassifier, 
+    #                     model_args={ 'in_channels':1,
+    #                                  'num_classes':3, 
+    #                                  'pretrained':True, 
+    #                                  'head_layers':'extend', 
+    #                                  'device':device, 
+    #                                  'weights_path':"modeles/storage/resnet_18_23dataset.pth"}, 
+    #                    train_fn=train_mednet_model, metric_fn=accuracy_metric, 
+    #                    epochs=35, batch_size=12, 
+    #                    n_splits=5, seed=42, device=device)
+
+
+    print(model)
+
+    history = train_mednet_model(
     model,
     torch.tensor(X_train).float(),
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=10,
-    epochs=30,
+    batch_size=15,
+    epochs=24,
     criterion = nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.005),
-    metric=confident_accuracy
-)
+    optimizer=optim.Adam(model.parameters(), lr=0.001),
+    metric=accuracy_metric,
+    device=device,
+    freeze_up_to=2
+    )
+
+
     
     plt.figure(1)
-    plt.title("Mean Absolute Error")
+    plt.title("Mean Absolute score")
     plt.xlabel("#Epoch")
     plt.plot(history['score'], label='Training Score')
     plt.plot(history['val_score'], label='Validation Score')
@@ -313,5 +463,14 @@ if __name__ == '__main__' :
     plt.plot(history['loss'], label='Training Loss')
     plt.plot(history['val_loss'], label='Validation Loss')
     plt.legend()
-
     plt.show()
+
+
+    import visualization.modelMetrics.trainingData as plotter
+
+    plotter.plot_confusion_matrix(model, X_val, y_val, class_names=['class 0', 'class 1', 'class 2'])
+    plotter.compute_sensitivity(model, X_val, y_val)
+    plotter.compute_accuracy(model, X_val, y_val)
+    plotter.plot_prediction_confidence_gap(model, X_val, y_val)
+    plotter.plot_roc_curves(model, X_val, y_val, num_classes=3)
+    plotter.classification_report_summary(model, X_val, y_val, class_names=['class 0', 'class 1', 'class 2'])
