@@ -18,6 +18,9 @@ from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 
+from nilearn import plotting
+import nibabel as nib
+
 # =======================
 # 1. Prétraitement
 # =======================
@@ -109,7 +112,7 @@ def project_pca(X, n_components=2):
         X = X.reshape(X.shape[0], -1)
 
     pca = PCA(n_components=n_components, random_state=42)
-    return pca.fit_transform(X), "PCA"
+    return pca.fit_transform(X), "PCA", pca
 
 def project_tsne(X, n_components=2, perplexity=30):
     if X.ndim > 2:
@@ -173,6 +176,108 @@ def make_batch(data):
 
         return X, Y
 
+
+# ============================================
+# PET Scan visulisation
+# ============================================
+
+def contrast_amplify(volume, lower_pct=80, upper_pct=99, low_scale=0.5, high_scale=2.0):
+    # Seuils basés sur les percentiles
+    threshold_low = np.percentile(np.abs(volume), lower_pct)
+    threshold_high = np.percentile(np.abs(volume), upper_pct)
+    
+    # Applique les échelles selon l’amplitude
+    mask_low = np.abs(volume) < threshold_low
+    mask_high = np.abs(volume) > threshold_high
+    
+    result = volume.copy()
+    result[mask_low] *= low_scale
+    result[mask_high] *= high_scale
+    return result
+
+
+def show_pca_component(pca_component, shape=(79, 95, 78), cut_coords=(0, 0, 0) ,threshold=0.001):
+    """
+    Affiche une composante PCA reshaped en image 3D avec mise à l'échelle.
+    """
+    volume = pca_component.reshape(shape)
+    
+    # Normalisation z-score (optionnelle mais améliore visuellement)
+    volume = (volume - volume.mean()) / (volume.std() + 1e-5)
+
+    # Amplifie le contraste
+    volume = contrast_amplify(volume, lower_pct=80, upper_pct=99, low_scale=0.5, high_scale=2.0)
+    
+
+    img = nib.Nifti1Image(volume, affine=np.eye(4))
+    
+    plotting.plot_stat_map(
+        img,
+        display_mode='ortho',
+        threshold=np.percentile(np.abs(volume), 95),  # top 5%
+        colorbar=True,
+        cmap='coolwarm',
+        cut_coords=cut_coords
+        )
+    plotting.show()
+
+
+import ipywidgets as widgets
+from IPython.display import display
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+
+def interactive_volume_viewer(volume):
+    """
+    volume: numpy array 3D (shape: x, y, z)
+    """
+
+    assert volume.ndim == 3, "Volume must be 3D"
+    x_max, y_max, z_max = volume.shape
+
+    # Initial slice
+    init_x, init_y, init_z = x_max // 2, y_max // 2, z_max // 2
+
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    plt.subplots_adjust(bottom=0.25)
+
+    # Show initial views
+    ax0 = axs[0].imshow(volume[init_x, :, :], cmap='coolwarm')
+    axs[0].set_title('Sagittal (X)')
+    ax1 = axs[1].imshow(volume[:, init_y, :], cmap='coolwarm')
+    axs[1].set_title('Coronal (Y)')
+    ax2 = axs[2].imshow(volume[:, :, init_z], cmap='coolwarm')
+    axs[2].set_title('Axial (Z)')
+
+    # Sliders
+    axcolor = 'lightgoldenrodyellow'
+    ax_slider_x = plt.axes([0.15, 0.15, 0.65, 0.03], facecolor=axcolor)
+    ax_slider_y = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
+    ax_slider_z = plt.axes([0.15, 0.05, 0.65, 0.03], facecolor=axcolor)
+
+    slider_x = Slider(ax_slider_x, 'X', 0, x_max - 1, valinit=init_x, valstep=1)
+    slider_y = Slider(ax_slider_y, 'Y', 0, y_max - 1, valinit=init_y, valstep=1)
+    slider_z = Slider(ax_slider_z, 'Z', 0, z_max - 1, valinit=init_z, valstep=1)
+
+    def update(val):
+        x = int(slider_x.val)
+        y = int(slider_y.val)
+        z = int(slider_z.val)
+
+        ax0.set_data(volume[x, :, :])
+        ax1.set_data(volume[:, y, :])
+        ax2.set_data(volume[:, :, z])
+        fig.canvas.draw_idle()
+
+    slider_x.on_changed(update)
+    slider_y.on_changed(update)
+    slider_z.on_changed(update)
+
+    plt.show()
+
+
 # ============================================
 # Pipeline principale
 # ============================================
@@ -230,7 +335,7 @@ def benchmark_componantes(data, componants_amount, save_path="pca_benchmark_resu
 
     for amount in componants_amount:
         X, y = make_batch(data)
-        X_proj, name = project_pca(X, n_components=amount)
+        X_proj, name, pca = project_pca(X, n_components=amount)
         
         print(f"\n📌 Méthode : {name}, with {amount} components")
         plot_projection(X_proj, y, title=f"{name} ({amount} components)")
@@ -263,6 +368,14 @@ def benchmark_componantes(data, componants_amount, save_path="pca_benchmark_resu
     df.to_csv(save_path, index=False)
     print(f"\n✅ Résultats sauvegardés dans {save_path}")
 
+    print("=================================")
+    print(pca.components_)
+    print(pca.components_[0].shape)
+    
+    for component in pca.components_:
+        component = component.reshape((79, 95, 78))
+        interactive_volume_viewer(component)
+
     # Tracé des courbes
     plot_pca_performance(results)
 
@@ -276,9 +389,10 @@ if __name__ == "__main__":
     loader = Loader.PETScanLoader("../../Desktop/Cancer_pain_data/PETdata/data/", "zscore")
     labelisedData = loader.load_all_labelised()
 
-    enlargementMethod = ['noise', 'flip_x']
+    enlargementMethod = ['noise', 'blur', 'flip_x']
     EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 2)
 
     #clf, selector = full_pipeline(EnlargedData, k_best=200)
 
-    benchmark_componantes(EnlargedData, [2,3,4,5])
+    benchmark_componantes(EnlargedData, [5, 6])
+    print(EnlargedData[0]["data"].shape)
