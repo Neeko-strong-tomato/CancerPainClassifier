@@ -2,8 +2,8 @@ import pandas as pd
 
 class PatientSelector:
 
-    def __init__(self, file1_path = "~/Documents/CancerPain/PETdata/patients list/patient_list.xlsx", 
-                 file2_path = "~/Documents/CancerPain/PETdata/patients list/deID_CC_HN220303.xlsx" ):
+    def __init__(self, file1_path = "~/Desktop/Cancer_pain_data/PETdata/patients list/patient_list.xlsx", 
+                 file2_path = "~/Desktop/Cancer_pain_data/PETdata/patients list/deID_CC_HN220303.xlsx" ):
         self.df1 = pd.read_excel(file1_path)
         self.df2 = pd.read_excel(file2_path)
 
@@ -26,18 +26,20 @@ class PatientSelector:
 
     def interpret_file1_row(self, row):
         analgesics = str(row.get('analgesics', '')).strip().lower()
+        nrs = str(row.get('NRS(now)', '')).strip().lower()
         if analgesics == 'af':
             return 0
-        elif analgesics.startswith('(non-opioid') | analgesics.startswith('(non opioid'):
+        elif nrs == '0' or nrs == '1' or nrs == '2' or nrs == '3' or nrs == '<3' :
             return 1
         else:
             return 2
 
     def interpret_file2_row(self, row):
         analgesics = str(row.get('analgesics', '')).strip().lower()
+        nrs = str(row.get('(現在)NRS_now', '')).strip().lower()
         if analgesics.startswith('(non)') | analgesics.startswith('no') | analgesics.startswith('non') :
             return 0
-        elif analgesics.startswith('(non-opioid') | analgesics.startswith('(non opioid'):
+        elif nrs == '0' or nrs == '1' or nrs == '2' or nrs == '3':
             return 1
         else:
             return 2
