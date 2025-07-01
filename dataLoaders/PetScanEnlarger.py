@@ -77,3 +77,29 @@ def augmentate_batch(batch, selected_augmentations=None, keep_original=True, max
             enlarged_batch.append(scan)
         
     return enlarged_batch
+
+def augmentate_dataset_separated(X, Y, selected_augmentations=None, keep_original=True, max_combination_size=4):
+    """
+    Args:
+        X: list or array of np.ndarray (scans)
+        Y: list or array of labels (int)
+        selected_augmentations: list of str (from AUGMENTATIONS), or None to use all
+        keep_original: bool, whether to keep the original scan
+        max_combination_size: int, how many augmentations to combine at max
+
+    Returns:
+        X_aug: array of np.ndarray (augmented scans)
+        Y_aug: array of int (corresponding labels)
+    """
+    X_aug = []
+    Y_aug = []
+
+    for scan, label in zip(X, Y):
+        labelized_scan = {'data': scan, 'label': label}
+        augmented_samples = augment_a_scan(labelized_scan, selected_augmentations, keep_original, max_combination_size)
+
+        for sample in augmented_samples:
+            X_aug.append(sample['data'])
+            Y_aug.append(sample['label'])
+
+    return X_aug, Y_aug
