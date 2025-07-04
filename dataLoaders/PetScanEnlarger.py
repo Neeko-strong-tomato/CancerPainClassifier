@@ -25,11 +25,21 @@ AUGMENTATIONS = {
 TARGET_SHAPE = (79, 95, 78)
 
 def fix_shape(scan):
-    # Recadre (crop or pad) le scan à la forme cible
+    """
+    Recadre (crop ou pad) le scan à la forme cible TARGET_SHAPE.
+    Supporte les entrées avec ou sans dimensions supplémentaires.
+    """
+    scan = np.squeeze(scan)  # supprime les dimensions 1 inutiles
+
+    if scan.ndim != 3:
+        raise ValueError(f"Le scan doit être 3D après squeeze, reçu shape={scan.shape}")
+
     fixed = np.zeros(TARGET_SHAPE, dtype=scan.dtype)
-    slices = tuple(slice(0, min(s, t)) for s, t in zip(scan.shape, TARGET_SHAPE))
-    fixed_slices = tuple(slice(0, s.stop) for s in slices)
-    fixed[fixed_slices] = scan[slices]
+
+    slices_src = tuple(slice(0, min(s, t)) for s, t in zip(scan.shape, TARGET_SHAPE))
+    slices_dst = tuple(slice(0, min(s, t)) for s, t in zip(scan.shape, TARGET_SHAPE))
+
+    fixed[slices_dst] = scan[slices_src]
     return fixed
 
 
@@ -99,7 +109,16 @@ def augmentate_dataset_separated(X, Y, selected_augmentations=None, keep_origina
         augmented_samples = augment_a_scan(labelized_scan, selected_augmentations, keep_original, max_combination_size)
 
         for sample in augmented_samples:
-            X_aug.append(sample['data'])
+            scan_data = sample['data']
+
+            scan_data = fix_shape(scan_data)
+
+            if scan_data.ndim == 3:
+                scan_data = np.expand_dims(scan_data, axis=0)
+
+            assert scan_data.shape == (1, *TARGET_SHAPE), f"Scan shape mismatch: {scan_data.shape}"
+
+            X_aug.append(scan_data)
             Y_aug.append(sample['label'])
 
-    return X_aug, Y_aug
+    return np.stack(X_aug, axis=0), np.array(Y_aug)
