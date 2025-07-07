@@ -411,13 +411,15 @@ if __name__ == '__main__' :
     labelisedData = loader.load_all_labelised()
 
     #Enlarge the Dataset with geometrical modifications
-    enlargementMethod = ['flip_x', 'flip_y', 'noise', 'flip_z']
-    EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 3)
+    enlargementMethod = ['adjust_contrast', 'blur', 'noise', 'adjust_brightness']
+    #EnlargedData = Enlarger.augmentate_batch(labelisedData, enlargementMethod, True, 2)
 
     # Disassociate the label from the example
-    X, Y = make_batch(EnlargedData)
+    X, Y = make_batch(labelisedData)
     print("Shape X before train_test_split:", X.shape)
     X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=42)
+    X_train, y_train = Enlarger.augmentate_dataset_separated(X_train, y_train, enlargementMethod, True, 2)
+    X_val, y_val = Enlarger.augmentate_dataset_separated(X_val, y_val, enlargementMethod, True, 2)
 
     #cross_validate_model(X, Y, MedicalNetClassifier, 
     #                     model_args={ 'in_channels':1,
@@ -431,7 +433,8 @@ if __name__ == '__main__' :
     #                    n_splits=5, seed=42, device=device)
 
 
-    print(model)
+    #print(model)
+    print(np.shape(X_train))
 
     history = train_mednet_model(
     model,
@@ -439,13 +442,13 @@ if __name__ == '__main__' :
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=15,
-    epochs=24,
+    batch_size=22, #22
+    epochs=35, #35
     criterion = nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.001),
+    optimizer=optim.Adam(model.parameters(), lr=0.00007),
     metric=accuracy_metric,
     device=device,
-    freeze_up_to=2
+    freeze_up_to=4
     )
 
 
