@@ -116,3 +116,65 @@ def plot_roc_curves(model, X_test, y_test, num_classes=None):
 def classification_report_summary(model, X_test, y_test, class_names=None):
     preds, _ = get_model_predictions(model, X_test)
     print(classification_report(y_test, preds, target_names=class_names))
+
+
+
+from sklearn.model_selection import StratifiedKFold
+
+def cross_validate_model(X, y, model_class, model_args={}, 
+                         train_fn=None, metric_fn=None, 
+                         epochs=10, batch_size=4, n_splits=5, seed=42, device='cpu'):
+    
+    kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    fold_metrics = []
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X, y)):
+        print(f"\n=== Fold {fold+1}/{n_splits} ===")
+
+        # Split data
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
+
+        # Create a fresh model for each fold
+        model = model_class(**model_args).to(device)
+
+        # Define optimizer and loss
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+        criterion = torch.nn.CrossEntropyLoss()
+
+        # Train
+        history = train_fn(
+            model,
+            torch.tensor(X_train).float(), 
+            torch.tensor(y_train).long(),
+            torch.tensor(X_val).float(), 
+            torch.tensor(y_val).long(),
+            criterion,
+            optimizer,
+            metric=metric_fn,
+            epochs=epochs,
+            batch_size=batch_size,
+            device=device
+        )
+
+        # Evaluate
+        #final_val_score = history['val_score'][-1]
+        #fold_metrics.append(final_val_score)
+        #print(f"[Fold {fold+1}] Validation Score: {final_val_score:.4f}")
+        model.eval()
+        with torch.no_grad():
+            X_val_tensor = torch.tensor(X_val).float().to(device)
+            y_val_tensor = torch.tensor(y_val).long().to(device)
+
+            preds = model(X_val_tensor)
+            val_score = metric_fn(preds, y_val_tensor) if metric_fn is not None else 0
+
+        fold_metrics.append(val_score)
+        print(f"[Fold {fold+1}] Validation Score: {val_score:.4f}")
+
+
+    avg = np.mean(fold_metrics)
+    std = np.std(fold_metrics)
+    print(f"\n Cross-Validation Result: {avg:.4f} ± {std:.4f}")
+    return fold_metrics
