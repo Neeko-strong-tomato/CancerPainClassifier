@@ -1,6 +1,6 @@
 import loader
 
-def identity(scan): return scan
+def identity(scan): return 0
 
 PREPOCESSINGS = {
     'identity': identity,
