@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import scipy
+import logger
 
 def flip_x(scan): return np.flip(scan, axis=0)
 def flip_y(scan): return np.flip(scan, axis=1)
@@ -104,7 +105,16 @@ def augmentate_dataset_separated(X, Y, selected_augmentations=None, keep_origina
     X_aug = []
     Y_aug = []
 
+    scan_amount = len(X)
+    scan_index = 0
+
+    ProgressBar = logger.ProgressReporter('Augmentation')
+
     for scan, label in zip(X, Y):
+
+        scan_index += 1
+        ProgressBar.update((scan_index/scan_amount)*100)
+
         labelized_scan = {'data': scan, 'label': label}
         augmented_samples = augment_a_scan(labelized_scan, selected_augmentations, keep_original, max_combination_size)
 
@@ -120,5 +130,7 @@ def augmentate_dataset_separated(X, Y, selected_augmentations=None, keep_origina
 
             X_aug.append(scan_data)
             Y_aug.append(sample['label'])
+        
+    print("\nTerminé.")
 
     return np.stack(X_aug, axis=0), np.array(Y_aug)

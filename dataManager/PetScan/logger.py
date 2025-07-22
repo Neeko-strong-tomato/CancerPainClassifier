@@ -32,3 +32,22 @@ def setup_logger(name: str = "app", level: int = logging.INFO) -> logging.Logger
         logger.addHandler(handler)
 
     return logger
+
+
+class ProgressReporter:
+    def __init__(self, bar_name, step=3.5):
+        self.last_progress = -100.0
+        self.step = step
+        self.name = bar_name             
+
+    def update(self, percent):
+        if percent - self.last_progress >= self.step:
+            self.last_progress = percent
+            filled = int(percent / 2)
+            bar = '#' * filled + '-' * (50 - filled)
+            print(f"\r {self.name} : [{bar}] {percent:5.1f}%", end='', flush=True)
+
+        elif percent == 100 :
+            filled = int(percent / 2)
+            bar = '#' * filled + '-' * (50 - filled)
+            print(f"\r {self.name} : [{bar}] {percent:5.1f}%", end='', flush=True)

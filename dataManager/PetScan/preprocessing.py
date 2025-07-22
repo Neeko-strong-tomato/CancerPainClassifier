@@ -1,4 +1,5 @@
 import loader
+import logger
 
 def identity(scan): return 0
 
@@ -34,5 +35,14 @@ def preprocess_all_scans(labelized_scans, preprocessing_method=None):
         Nothing, the scan as been preprocessed and modified with Bohr effect
     """
 
+    scan_amount = len(labelized_scans)
+    scan_index = 0
+
+    ProgressBar = logger.ProgressReporter('Preprocessing')
+
     for scan in labelized_scans :
+        scan_index += 1
+        ProgressBar.update((scan_index/scan_amount)*100)
         preprocess_a_scan(scan, preprocessing_method)
+        
+    print("\nTerminé.")
