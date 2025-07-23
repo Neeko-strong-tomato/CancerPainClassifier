@@ -90,6 +90,12 @@ CancerPainClassifier/
 
 ---
 
+## 📖 Citation
+
+If you use this repository in your research, please cite it as:
+
+Neeko (2025). CancerPainClassifier: Deep Learning-based Pain Classification in Cancer Patients. GitHub repository: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 ## ⚙️ Installation
 
 ```bash
