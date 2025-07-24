@@ -1,10 +1,15 @@
+# CancerPainClassifier
+# Copyright (c) 2025 Neeko
+# License: MIT
+# If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-import dataLoaders.PETScanLoader as Loader
-import dataLoaders.PetScanEnlarger as Enlarger
+import dataManager.PetScan.loader as Loader
+import dataManager.PetScan.PetScanEnlarger as Enlarger
 
 
 import numpy as np
