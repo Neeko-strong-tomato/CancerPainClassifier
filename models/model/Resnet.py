@@ -1,3 +1,8 @@
+# CancerPainClassifier
+# Copyright (c) 2025 Neeko
+# License: MIT
+# If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 import torch
 import torch.nn as nn
 from monai.networks.nets import DenseNet121
@@ -149,7 +154,6 @@ def freeze_model_layers(model: MedicalNetClassifier, num_layers_to_freeze: int =
 if __name__ == '__main__' :
 
     import torch.optim as optim
-    from sklearn.model_selection import train_test_split
     import matplotlib.pyplot as plt
 
     import sys

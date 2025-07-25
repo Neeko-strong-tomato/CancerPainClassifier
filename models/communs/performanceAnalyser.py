@@ -1,3 +1,8 @@
+# CancerPainClassifier
+# Copyright (c) 2025 Neeko
+# License: MIT
+# If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
