@@ -29,31 +29,6 @@ def tensorizeScan(scan):
     # Convertir en tenseur
     tensor = torch.tensor(data, dtype=torch.float32)
     return tensor
-#########################################################################
-
-# Data Formating
-
-def make_batch(data):
-    X = []
-    Y = []
-
-    for patient in data:
-        X.append(patient["data"])
-        Y.append(patient["label"])
-
-    for i, scan in enumerate(X):
-            if scan.shape != X[0].shape:
-                print(f"Inconsistent shape at index {i}: {scan.shape} vs {X[0].shape}")
-                fix_shape(scan)
-
-    X = np.array(X, dtype=np.float32)
-    Y = np.array(Y, dtype=np.int64)
-
-
-    if len(X.shape) == 4:
-        X = np.expand_dims(X, axis=1)  # (N, D, H, W) -> (N, 1, D, H, W)
-
-    return X, Y
 
 
 
