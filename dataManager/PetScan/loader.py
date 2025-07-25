@@ -1,10 +1,19 @@
+# CancerPainClassifier
+# Copyright (c) 2025 Neeko
+# License: MIT
+# If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 import nibabel as nib
 import numpy as np
 import os
+
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
 if __name__ == "__main__":
-    import PatientSelector
+    from dataManager.PatientSelector import PatientSelector
 else :
-    from dataLoaders.PatientSelector import PatientSelector
+    from dataManager.PatientSelector import PatientSelector
 
 from tqdm import tqdm
 
@@ -58,6 +67,7 @@ class PETScanLoader:
         """
         self.data_dir = data_dir
         self.normalize = normalization
+        self.selector = PatientSelector()
         self.file_list = [f for f in os.listdir(data_dir) if f.endswith('.nii') or f.endswith('.nii.gz')]
 
     def load_scan(self, filename):
@@ -77,8 +87,7 @@ class PETScanLoader:
         img = nib.load(path)
         data = img.get_fdata()
 
-        selector = PatientSelector()
-        label = selector.get_patient_label(os.path.splitext(filename)[0])
+        label = self.selector.get_patient_label(os.path.splitext(filename)[0])
 
         data = apply_normalization(data, self.normalize)
 
@@ -118,7 +127,7 @@ class PETScanLoader:
 
 if __name__ == "__main__" :
     
-    loader = PETScanLoader("~/Documents/CancerPain/PETdata/data/", False)
+    loader = PETScanLoader(os.path.expanduser("~/Documents/CancerPain/PETdata/data/"), 'zscore')
     scan = loader.load_scan("PHC60_8863.nii")
     print(os.path.splitext("PHC60_8863.nii")[0])
     print(loader.load_labelised_scan("PHC60_8863.nii"))

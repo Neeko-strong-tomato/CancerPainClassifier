@@ -1,9 +1,17 @@
+# CancerPainClassifier
+# Copyright (c) 2025 Neeko
+# License: MIT
+# If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
+
 import pandas as pd
+import os
 
 class PatientSelector:
 
-    def __init__(self, file1_path = "~/Desktop/Cancer_pain_data/PETdata/patients list/patient_list.xlsx", 
-                 file2_path = "~/Desktop/Cancer_pain_data/PETdata/patients list/deID_CC_HN220303.xlsx" ):
+    # "~/Desktop/Cancer_pain_data/PETdata/patients list/patient_list.xlsx", 
+    #  "~/Desktop/Cancer_pain_data/PETdata/patients list/deID_CC_HN220303.xlsx"
+    def __init__(self, file1_path = os.path.expanduser("~/Documents/CancerPain/PETdata/patients list/patient_list.xlsx"), 
+                 file2_path = os.path.expanduser("~/Documents/CancerPain/PETdata/patients list/deID_CC_HN220303.xlsx") ):
         self.df1 = pd.read_excel(file1_path)
         self.df2 = pd.read_excel(file2_path)
 

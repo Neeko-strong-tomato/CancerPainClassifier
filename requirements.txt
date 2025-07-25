@@ -21,8 +21,9 @@ scikit-learn
 matplotlib
 seaborn
 
-# Optionnel pour les chargements
+# Optionnel pour les chargements et les logs
 tqdm
+colorlog
 
 # Optionnel : TSNE/PCA rapide
 umap-learn

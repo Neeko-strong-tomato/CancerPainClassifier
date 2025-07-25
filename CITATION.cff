@@ -5,9 +5,8 @@ version: "0.1.0"
 doi: ""
 date-released: 2025-07-17
 authors:
-  - family-names: Neeko
-    given-names: (your real first name, optional)
-    orcid: "https://orcid.org/0000-0000-0000-0000"  # facultatif
+  - family-names: Vendrely Drier
+    given-names: Axelle (Neeko)
 license: MIT
 repository-code: "https://github.com/Neeko-strong-tomato/CancerPainClassifier"
 keywords:

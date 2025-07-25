@@ -84,7 +84,7 @@ CancerPainClassifier/
 |---------------|----------|----------|--------|
 | Naive         | xxxx     | xxxx     | xxxx   |
 | ResNet        | xxxx     | xxxx     | xxxx   |
-| MONAI Model   | xxxx     | xxxx     | xxxx   |
+
 
 > *those results come from some training session*
 
