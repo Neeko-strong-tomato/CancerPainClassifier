@@ -46,3 +46,21 @@ def save_model_weights(model, save_dir: str, filename: str = "model.pth"):
     save_path = os.path.join(save_dir, filename)
     torch.save(model.state_dict(), save_path)
     print(f"[✔] Modèle sauvegardé → {save_path}")
+
+
+def save_args(args: dict, save_dir: str, filename: str = "args.txt"):
+    """
+    Sauvegarde un dictionnaire de paramètres dans un fichier texte.
+
+    :param args: Dictionnaire des arguments/paramètres.
+    :param save_dir: Dossier de sauvegarde (sera créé si nécessaire).
+    :param filename: Nom du fichier texte (par défaut: "args.txt").
+    """
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+
+    with open(save_path, 'w') as f:
+        for key, value in args.items():
+            f.write(f"{key}: {value}\n")
+
+    print(f"[✔] Paramètres sauvegardés → {save_path}")
