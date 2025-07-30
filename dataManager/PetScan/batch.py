@@ -35,12 +35,15 @@ def make_batch(data):
 
 class batch :
     def __init__(self, data_dir = "../../Desktop/Cancer_pain_data/PETdata/data/", normalization='zscore',
-                  preprocessing_method='identity'):
+                  preprocessing_method='identity', verbose=True, show_data_evolution=True):
         
-        loader = Loader.PETScanLoader(data_dir, normalization)
+        loader = Loader.PETScanLoader(data_dir, 
+                                      verbose=verbose, show_data_evolution=show_data_evolution)
         self.labelisedData = loader.load_all_labelised()
+        self.verbose = verbose
+        self.graphs = show_data_evolution
 
-        Preprocesser.preprocess_all_scans(self.labelisedData, preprocessing_method)
+        Preprocesser.preprocess_all_scans(self.labelisedData, preprocessing_method, normalization_method=normalization)
 
 
     def split_train_test(self, enlargement_method, keep_originals = True,
@@ -49,7 +52,10 @@ class batch :
                          stratify=True):
 
         X, Y = make_batch(self.labelisedData)
-        print("shape de X :", np.shape(X), "shape de Y :", np.shape(Y))
+
+        if self.verbose:
+            print("shape de X :", np.shape(X), "shape de Y :", np.shape(Y))
+
         X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=test_size, 
                                                           random_state=random_state, stratify=Y if stratify else None, shuffle=True)
         X_train, y_train = Enlarger.augmentate_dataset_separated(X_train, y_train, enlargement_method, 
@@ -58,6 +64,11 @@ class batch :
         if enlarge_validation_batch :
             X_val, y_val = Enlarger.augmentate_dataset_separated(X_val, y_val, enlargement_method, 
                                                                  keep_originals, max_enlargment_combination)
+
+        if self.verbose:
+            print("     Shape of both training and validation batch before the learning phase :")
+            print("shape de X :", np.shape(X_train), "shape de Y :", np.shape(y_train))
+            print("shape de x :", np.shape(X_val), "shape de y :", np.shape(y_val))
 
         return X_train, X_val, y_train, y_val
     
@@ -68,5 +79,4 @@ if __name__ == "__main__":
 
      batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"))
      X, x, Y, y = batch.split_train_test(['blur', 'noise'])
-     print("shape de X :", np.shape(X), "shape de Y :", np.shape(Y))
-     print("shape de x :", np.shape(x), "shape de y :", np.shape(y))
+     

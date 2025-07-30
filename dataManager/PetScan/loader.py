@@ -19,54 +19,13 @@ from tqdm import tqdm
 
 
 
-def apply_normalization(scan, method="zscore"):
-        """
-        Applique une normalisation à un volume 3D (PET scan, par exemple).
-
-        Paramètres :
-            scan (np.ndarray) : volume 3D (shape typique : [D, H, W])
-            method (str) : type de normalisation. Options :
-                           - "zscore"
-                           - "minmax"
-                           - "mean"
-                           - "none"
-
-        Retour :
-            scan normalisé (np.ndarray)
-        """
-        scan = scan.astype(np.float32)
-
-        if method == "zscore":
-            mean = np.mean(scan)
-            std = np.std(scan)
-            if std > 0:
-                return (scan - mean) / std
-            else:
-                return scan - mean  # ou raise ValueError
-        elif method == "minmax":
-            min_val = np.min(scan)
-            max_val = np.max(scan)
-            if max_val > min_val:
-                return (scan - min_val) / (max_val - min_val)
-            else:
-                return np.zeros_like(scan)
-        elif method == "mean":
-            mean = np.mean(scan)
-            return scan - mean
-        elif method == "none":
-            return scan
-        else:
-            raise ValueError(f"Unknown normalization method: {method}")
-
-
 class PETScanLoader:
-    def __init__(self, data_dir, normalization):
+    def __init__(self, data_dir, verbose=True, show_data_evolution=True):
         """
         data_dir : path to the .nii ou .nii.gz
         normalize : bool telling if the normalization should be applied (min-max)
         """
         self.data_dir = data_dir
-        self.normalize = normalization
         self.selector = PatientSelector()
         self.file_list = [f for f in os.listdir(data_dir) if f.endswith('.nii') or f.endswith('.nii.gz')]
 
@@ -74,8 +33,6 @@ class PETScanLoader:
         path = os.path.join(self.data_dir, filename)
         img = nib.load(path)
         data = img.get_fdata()
-
-        data = apply_normalization(data, self.normalize)
 
         return data
     
@@ -88,8 +45,6 @@ class PETScanLoader:
         data = img.get_fdata()
 
         label = self.selector.get_patient_label(os.path.splitext(filename)[0])
-
-        data = apply_normalization(data, self.normalize)
 
         return {"data": data, "label": label}
 
@@ -127,7 +82,7 @@ class PETScanLoader:
 
 if __name__ == "__main__" :
     
-    loader = PETScanLoader(os.path.expanduser("~/Documents/CancerPain/PETdata/data/"), 'zscore')
+    loader = PETScanLoader(os.path.expanduser("~/Documents/CancerPain/PETdata/data/"))
     scan = loader.load_scan("PHC60_8863.nii")
     print(os.path.splitext("PHC60_8863.nii")[0])
     print(loader.load_labelised_scan("PHC60_8863.nii"))
