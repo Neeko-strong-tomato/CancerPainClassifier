@@ -6,7 +6,12 @@
 import numpy as np
 import itertools
 import scipy
-import logger
+
+if __name__ == "__main__":
+    import logger
+
+else :
+    import dataManager.PetScan.logger as logger
 
 def flip_x(scan): return np.flip(scan, axis=0)
 def flip_y(scan): return np.flip(scan, axis=1)

@@ -3,9 +3,16 @@
 # License: MIT
 # If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
 
-import loader as Loader
-import preprocessing as Preprocesser
-import enlarger as Enlarger
+if __name__ == "__main__":
+    import loader as Loader
+    import preprocessing as Preprocesser
+    import enlarger as Enlarger
+
+else :
+     import dataManager.PetScan.loader as Loader
+     import dataManager.PetScan.preprocessing as Preprocesser
+     import dataManager.PetScan.enlarger as Enlarger
+
 
 import numpy as np
 from sklearn.model_selection import train_test_split

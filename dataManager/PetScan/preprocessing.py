@@ -3,8 +3,14 @@
 # License: MIT
 # If used in research, please cite: https://github.com/Neeko-strong-tomato/CancerPainClassifier
 
-import loader
-import logger
+if __name__ == "__main__":
+    import loader
+    import logger
+
+else :
+    import dataManager.PetScan.loader
+    import dataManager.PetScan.logger as logger
+
 import numpy as np
 
 from nilearn.image import resample_to_img
@@ -48,7 +54,11 @@ def identity(scan): return 0
 def mean_template_interpolate(scan, mean_template): 
     scan_nii = nib.Nifti1Image(scan, affine=np.eye(4))
     mean_template_nii = nib.Nifti1Image(mean_template, affine=np.eye(4))
-    return resample_to_img(scan_nii, mean_template_nii, interpolation='continuous').get_fdata()
+    return resample_to_img(scan_nii, mean_template_nii, 
+                           interpolation='continuous', 
+                           force_resample=True, 
+                           copy_header=True
+                           ).get_fdata()
     
 
 PREPROCESSINGS = {

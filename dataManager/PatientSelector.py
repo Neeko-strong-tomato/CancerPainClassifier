@@ -38,9 +38,9 @@ class PatientSelector:
         if analgesics == 'af':
             return 0
         elif nrs == '0' or nrs == '1' or nrs == '2' or nrs == '3' or nrs == '<3' :
-            return 1
+            return 0
         else:
-            return 2
+            return 1
 
     def interpret_file2_row(self, row):
         analgesics = str(row.get('analgesics', '')).strip().lower()
@@ -48,9 +48,9 @@ class PatientSelector:
         if analgesics.startswith('(non)') | analgesics.startswith('no') | analgesics.startswith('non') :
             return 0
         elif nrs == '0' or nrs == '1' or nrs == '2' or nrs == '3':
-            return 1
+            return 0
         else:
-            return 2
+            return 1
 
 
 if __name__ == "__main__" : 
