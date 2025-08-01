@@ -8,6 +8,7 @@ openpyxl
 
 # Neuroimagerie
 nibabel
+nilearn
 
 # EEG support (si tu ajoutes MNE)
 mne

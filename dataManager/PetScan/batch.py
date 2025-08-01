@@ -35,7 +35,7 @@ def make_batch(data):
 
 class batch :
     def __init__(self, data_dir = "../../Desktop/Cancer_pain_data/PETdata/data/", normalization='zscore',
-                  preprocessing_method='identity', verbose=True, show_data_evolution=True):
+                  preprocessing_method=['identity'], verbose=True, show_data_evolution=True):
         
         loader = Loader.PETScanLoader(data_dir, 
                                       verbose=verbose, show_data_evolution=show_data_evolution)
@@ -43,7 +43,9 @@ class batch :
         self.verbose = verbose
         self.graphs = show_data_evolution
 
-        Preprocesser.preprocess_all_scans(self.labelisedData, preprocessing_method, normalization_method=normalization)
+        Preprocesser.preprocess_all_scans(self.labelisedData, 
+                                          preprocessing_method=preprocessing_method, 
+                                          normalization_method=normalization)
 
 
     def split_train_test(self, enlargement_method, keep_originals = True,
@@ -77,6 +79,8 @@ if __name__ == "__main__":
      
      import os
 
-     batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"))
+     batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"), 
+                   preprocessing_method=['mean_template'],
+                   normalization='zscore')
      X, x, Y, y = batch.split_train_test(['blur', 'noise'])
      
