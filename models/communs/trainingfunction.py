@@ -5,6 +5,7 @@
 
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+from tqdm import tqdm
 
 def train_model(model, X_train, y_train, X_val, y_val, batch_size=32, epochs=20, 
                 criterion=None, optimizer=None, metric=None, device='cpu'):
@@ -24,7 +25,7 @@ def train_model(model, X_train, y_train, X_val, y_val, batch_size=32, epochs=20,
         train_loss = 0.0
         train_score = 0.0
 
-        for x_batch, y_batch in train_loader:
+        for x_batch, y_batch in tqdm(train_loader, desc=f"Epoch {epoch+1}", leave=False):
             x_batch, y_batch = x_batch.to(device), y_batch.to(device).long()
 
             optimizer.zero_grad()
