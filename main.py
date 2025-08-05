@@ -10,6 +10,7 @@ from models.model.naiveModel import Simple3DCNN
 import models.communs.trainingfunction as training_fn
 import torch.optim as optim
 import models.communs.metrics as metric
+from models.communs.lossFunction import FocalLoss
 
 # Batch creator
 from dataManager.PetScan.batch import batch
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"), 
                   preprocessing_method=['mean_template'],
                   normalization='zscore')
-    X_train, X_val, y_train, y_val = batch.split_train_test(['blur', 'noise'])
+    X_train, X_val, y_train, y_val = batch.split_train_test(['blur'])
 
 
     print(" Starting training process :")
@@ -40,10 +41,10 @@ if __name__ == "__main__":
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=4,
-    epochs=5,
-    criterion = nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.005),
+    batch_size=20,
+    epochs=25,
+    criterion = FocalLoss(alpha=0.25, gamma=2, reduction='mean'), #nn.CrossEntropyLoss(),
+    optimizer=optim.Adam(model.parameters(), lr=0.002),
     metric=metric.confident_accuracy,
     device=device)
 

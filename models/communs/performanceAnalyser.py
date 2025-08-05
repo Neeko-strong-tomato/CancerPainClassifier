@@ -105,8 +105,8 @@ def plot_roc_curves(model, X_test, y_test, num_classes=None):
 
     plt.figure()
     for i in range(num_classes):
-        fpr, tpr, _ = roc_curve(y_test_bin[:, i], probs[:, i])
-        auc = roc_auc_score(y_test_bin[:, i], probs[:, i])
+        fpr, tpr, _ = roc_curve(y_test_bin[:], probs[:, i])
+        auc = roc_auc_score(y_test_bin[:], probs[:, i])
         plt.plot(fpr, tpr, label=f"Class {i} (AUC = {auc:.2f})")
 
     plt.plot([0, 1], [0, 1], 'k--', lw=1)
