@@ -8,8 +8,8 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-import dataManager.PetScan.loader as Loader
-import dataManager.PetScan.PetScanEnlarger as Enlarger
+#import dataManager.PetScan.loader as Loader
+#import dataManager.PetScan.PetScanEnlarger as Enlarger
 
 
 import numpy as np

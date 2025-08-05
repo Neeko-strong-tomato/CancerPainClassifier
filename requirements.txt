@@ -21,6 +21,7 @@ scikit-learn
 # Visualisation
 matplotlib
 seaborn
+ipywidgets
 
 # Optionnel pour les chargements et les logs
 tqdm

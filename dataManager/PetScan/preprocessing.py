@@ -185,7 +185,7 @@ def preprocess_a_scan(labelized_scan, preprocessing_methods=None, MEAN_TEMPALTE=
 
 
 def preprocess_all_scans(labelized_scans, preprocessing_method=None, normalization_method=None
-                         , verbose=True):
+                         , verbose=True, visualize_operation=False):
     """
     Args:
         labelized_scans: list of dict {'scan': np.ndarray, 'label': int}
@@ -198,8 +198,14 @@ def preprocess_all_scans(labelized_scans, preprocessing_method=None, normalizati
         Nothing, the scan as been preprocessed and modified with Bohr effect
     """
 
+    if visualize_operation:
+        from dataManager.dataAnalyser import interactive_volume_viewer
+        interactive_volume_viewer(labelized_scans[0]['data'])
+
     if "mean_template" in preprocessing_method:
         MEAN_TEMPLATE = compute_mean_template(labelized_scans)
+        interactive_volume_viewer(MEAN_TEMPLATE)
+
 
     if verbose:
         scan_amount = len(labelized_scans)
@@ -212,9 +218,14 @@ def preprocess_all_scans(labelized_scans, preprocessing_method=None, normalizati
             scan_index += 1
             ProgressBar.update((scan_index/scan_amount)*100)
         preprocess_a_scan(scan, preprocessing_methods=preprocessing_method, MEAN_TEMPALTE=MEAN_TEMPLATE)
+    
+    if visualize_operation:
+        interactive_volume_viewer(labelized_scans[0]['data'])
 
     if verbose:
         print("\nTerminé.")
 
     if normalization_method is not None:
         normalize_all_scans(labelized_scans, normalization_method=normalization_method, verbose=verbose)
+        if visualize_operation:
+            interactive_volume_viewer(labelized_scans[0]['data'])

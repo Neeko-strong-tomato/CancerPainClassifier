@@ -52,7 +52,9 @@ class batch :
 
         Preprocesser.preprocess_all_scans(self.labelisedData, 
                                           preprocessing_method=preprocessing_method, 
-                                          normalization_method=normalization)
+                                          normalization_method=normalization,
+                                          verbose=verbose,
+                                          visualize_operation=show_data_evolution)
 
 
     def split_train_test(self, enlargement_method, keep_originals = True,
