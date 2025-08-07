@@ -204,7 +204,8 @@ def preprocess_all_scans(labelized_scans, preprocessing_method=None, normalizati
 
     if "mean_template" in preprocessing_method:
         MEAN_TEMPLATE = compute_mean_template(labelized_scans)
-        interactive_volume_viewer(MEAN_TEMPLATE)
+        if visualize_operation:
+            interactive_volume_viewer(MEAN_TEMPLATE)
 
 
     if verbose:

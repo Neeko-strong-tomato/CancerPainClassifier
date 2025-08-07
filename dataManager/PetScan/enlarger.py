@@ -17,9 +17,9 @@ def flip_x(scan): return np.flip(scan, axis=0)
 def flip_y(scan): return np.flip(scan, axis=1)
 def flip_z(scan): return np.flip(scan, axis=2)
 def add_noise(scan, noise_level=0.01): return scan + noise_level * np.random.randn(*scan.shape)
-def adjust_contrast(scan, factor=1.2): return scan * factor
+def adjust_contrast(scan, factor=1.5): return scan * factor
 def adjust_brightness(scan, offset=0.1): return scan + offset
-def blur(scan, sigma=1.0): return scipy.ndimage.gaussian_filter(scan, sigma=sigma)
+def blur(scan, sigma=1.5): return scipy.ndimage.gaussian_filter(scan, sigma=sigma)
 def identity(scan): return scan
 
 AUGMENTATIONS = {
@@ -143,4 +143,55 @@ def augmentate_dataset_separated(X, Y, selected_augmentations=None, keep_origina
         
     print("\nTerminé.")
 
+    return np.stack(X_aug, axis=0), np.array(Y_aug)
+
+def upsample_class_by_augmentation(X, Y, target_class, selected_augmentations=None, keep_original=True, max_combination_size=4):
+    """
+    Applique des augmentations uniquement sur les scans de la classe `target_class`.
+
+    Args:
+        X: list or array of np.ndarray (scans)
+        Y: list or array of int (labels)
+        target_class: int, la classe à augmenter
+        selected_augmentations: list of str, les augmentations à appliquer
+        keep_original: bool, si True, garde aussi le scan original
+        max_combination_size: int, nombre max d'augmentations combinées
+
+    Returns:
+        X_aug: array de scans (originaux + augmentés)
+        Y_aug: array des labels correspondants
+    """
+    X_aug = []
+    Y_aug = []
+
+    scan_amount = len(X)
+    scan_index = 0
+
+    ProgressBar = logger.ProgressReporter(f'Upsampling class {target_class}')
+
+    for scan, label in zip(X, Y):
+        scan_index += 1
+        ProgressBar.update((scan_index / scan_amount) * 100)
+
+        if label == target_class:
+            # Appliquer les augmentations uniquement à la classe cible
+            labelized_scan = {'data': scan, 'label': label}
+            augmented_samples = augment_a_scan(labelized_scan, selected_augmentations, keep_original, max_combination_size)
+        else:
+            # Ne pas appliquer d'augmentation, garder le scan original tel quel
+            augmented_samples = [{'data': scan, 'label': label}] if keep_original else []
+
+        for sample in augmented_samples:
+            scan_data = sample['data']
+            scan_data = fix_shape(scan_data)
+
+            if scan_data.ndim == 3:
+                scan_data = np.expand_dims(scan_data, axis=0)
+
+            assert scan_data.shape == (1, *TARGET_SHAPE), f"Scan shape mismatch: {scan_data.shape}"
+
+            X_aug.append(scan_data)
+            Y_aug.append(sample['label'])
+
+    print("\nUpsampling terminé.")
     return np.stack(X_aug, axis=0), np.array(Y_aug)
