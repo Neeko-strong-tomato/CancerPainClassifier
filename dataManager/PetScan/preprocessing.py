@@ -10,6 +10,7 @@ if __name__ == "__main__":
 else :
     import dataManager.PetScan.loader
     import dataManager.PetScan.logger as logger
+    import dataManager.PetScan.mask as mask
 
 import numpy as np
 
@@ -59,11 +60,15 @@ def mean_template_interpolate(scan, mean_template):
                            force_resample=True, 
                            copy_header=True
                            ).get_fdata()
-    
+
+def void_bone_mask(scan):
+    scan_mask = mask.create_brain_mask(scan, intensity_threshold=0.02)
+    return mask.apply_mask(scan, scan_mask)
 
 PREPROCESSINGS = {
     'identity': identity,
     'mean_template': mean_template_interpolate,
+    'mask': void_bone_mask,
 }
 
 
@@ -204,6 +209,10 @@ def preprocess_all_scans(labelized_scans, preprocessing_method=None, normalizati
 
     if "mean_template" in preprocessing_method:
         MEAN_TEMPLATE = compute_mean_template(labelized_scans)
+        if "mask" in preprocessing_method:
+            MEAN_TEMPLATE_mask = mask.create_brain_mask(MEAN_TEMPLATE, intensity_threshold=0.02)
+            MEAN_TEMPLATE = mask.apply_mask(MEAN_TEMPLATE, MEAN_TEMPLATE_mask)
+        
         if visualize_operation:
             interactive_volume_viewer(MEAN_TEMPLATE)
 

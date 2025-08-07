@@ -9,8 +9,9 @@ openpyxl
 # Neuroimagerie
 nibabel
 nilearn
+scikit-image
 
-# EEG support (si tu ajoutes MNE)
+# EEG support
 mne
 
 # Deep learning

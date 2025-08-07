@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     print(" Loading and creating the batch:")
     batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"), 
-                  preprocessing_method=['mean_template'],
+                  preprocessing_method=['mask' ,'mean_template'],
                   normalization='zscore', 
                   show_data_evolution=False,
                   up_sampling=True,
