@@ -12,6 +12,7 @@ else :
      import dataManager.PetScan.loader as Loader
      import dataManager.PetScan.preprocessing as Preprocesser
      import dataManager.PetScan.enlarger as Enlarger
+     import dataManager.PetScan.logger as logger
 
 
 import numpy as np
@@ -42,13 +43,14 @@ def make_batch(data):
 
 class batch :
     def __init__(self, data_dir = "../../Desktop/Cancer_pain_data/PETdata/data/", normalization='zscore',
-                  preprocessing_method=['identity'], verbose=True, show_data_evolution=True):
+                  preprocessing_method=['identity'], verbose=True, show_data_evolution=True, up_sampling=True):
         
         loader = Loader.PETScanLoader(data_dir, 
                                       verbose=verbose, show_data_evolution=show_data_evolution)
         self.labelisedData = loader.load_all_labelised()
         self.verbose = verbose
         self.graphs = show_data_evolution
+        self.upSampling = up_sampling
 
         Preprocesser.preprocess_all_scans(self.labelisedData, 
                                           preprocessing_method=preprocessing_method, 
@@ -69,7 +71,11 @@ class batch :
 
         X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=test_size, 
                                                           random_state=random_state, stratify=Y if stratify else None, shuffle=True)
-        X_train, y_train = Enlarger.augmentate_dataset_separated(X_train, y_train, enlargement_method, 
+        if self.upSampling:
+            X_train, y_train = Enlarger.upsample_class_by_augmentation(X_train, y_train, 1, enlargement_method, 
+                                                                 keep_originals, max_enlargment_combination)
+        else:
+            X_train, y_train = Enlarger.augmentate_dataset_separated(X_train, y_train, enlargement_method, 
                                                                  keep_originals, max_enlargment_combination)
 
         if enlarge_validation_batch :
@@ -80,6 +86,7 @@ class batch :
             print("     Shape of both training and validation batch before the learning phase :")
             print("shape de X :", np.shape(X_train), "shape de Y :", np.shape(y_train))
             print("shape de x :", np.shape(X_val), "shape de y :", np.shape(y_val))
+            logger.log_class_distribution(y_train)
 
         return X_train, X_val, y_train, y_val
     

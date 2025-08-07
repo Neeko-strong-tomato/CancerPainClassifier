@@ -30,8 +30,11 @@ if __name__ == "__main__":
     print(" Loading and creating the batch:")
     batch = batch(data_dir=os.path.expanduser("~/Documents/CancerPain/PETdata/data"), 
                   preprocessing_method=['mean_template'],
-                  normalization='zscore')
-    X_train, X_val, y_train, y_val = batch.split_train_test(['blur'])
+                  normalization='zscore', 
+                  show_data_evolution=False,
+                  up_sampling=True,
+                  verbose=True)
+    X_train, X_val, y_train, y_val = batch.split_train_test(['blur', 'adjust_contrast'])
 
 
     print(" Starting training process :")
@@ -41,13 +44,14 @@ if __name__ == "__main__":
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=20,
-    epochs=25,
-    criterion = FocalLoss(alpha=0.25, gamma=2, reduction='mean'), #nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.002),
+    batch_size=15,
+    epochs=15,
+    criterion = FocalLoss(alpha=0.30, gamma=2.1, reduction='mean'), #nn.CrossEntropyLoss(),
+    optimizer=optim.Adam(model.parameters(), lr=0.0002),
     metric=metric.confident_accuracy,
     device=device)
 
+    plotter.plot_training_data(history)
     plotter.plot_confusion_matrix(model, X_val, y_val, class_names=['class 0', 'class 1'])
     plotter.compute_sensitivity(model, X_val, y_val)
     plotter.compute_accuracy(model, X_val, y_val)
