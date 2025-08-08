@@ -44,10 +44,10 @@ if __name__ == "__main__":
     torch.tensor(y_train).float(),
     torch.tensor(X_val).float(),
     torch.tensor(y_val).float(),
-    batch_size=15,
+    batch_size=10,
     epochs=15,
-    criterion = FocalLoss(alpha=0.30, gamma=2.1, reduction='mean'), #nn.CrossEntropyLoss(),
-    optimizer=optim.Adam(model.parameters(), lr=0.0002),
+    criterion = FocalLoss(alpha=0.32, gamma=2.2, reduction='mean'), #nn.CrossEntropyLoss(),
+    optimizer=optim.Adam(model.parameters(), lr=0.0001),
     metric=metric.confident_accuracy,
     device=device)
 
