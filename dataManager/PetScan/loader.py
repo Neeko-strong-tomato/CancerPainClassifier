@@ -33,8 +33,9 @@ class PETScanLoader:
         path = os.path.join(self.data_dir, filename)
         img = nib.load(path)
         data = img.get_fdata()
+        affine = img.affine
 
-        return data
+        return {"data": data, "affine": affine}
     
     def load_labelised_scan(self, filename):
         """
@@ -43,10 +44,11 @@ class PETScanLoader:
         path = os.path.join(self.data_dir, filename)
         img = nib.load(path)
         data = img.get_fdata()
+        affine = img.affine
 
         label = self.selector.get_patient_label(os.path.splitext(filename)[0])
 
-        return {"data": data, "label": label}
+        return {"data": data, "label": label, "affine": affine}
 
 
     def load_all(self):
