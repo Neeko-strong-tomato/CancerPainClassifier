@@ -1,10 +1,10 @@
 # Core scientific stack
 numpy
 scipy
-pandas
 
 #file loaders
 openpyxl
+pandas
 
 # Neuroimagerie
 nibabel
@@ -31,6 +31,7 @@ colorlog
 
 # Optionnel : TSNE/PCA rapide
 umap-learn
+xgboost
 
 # Sauvegarde modèles, I/O avancé
 joblib
