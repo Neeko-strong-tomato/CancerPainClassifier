@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from imblearn.over_sampling import SMOTE
 import matplotlib.pyplot as plt
 
-# === Charger ton CSV ===
+# === Loading CSV ===
 df = pd.read_csv("metricExtraction/pet_features.csv")
 X = df.drop(columns=["label"])
 y = df["label"]
@@ -15,30 +15,31 @@ from sklearn.impute import SimpleImputer
 import numpy as np
 
 
-# === Split stratifié (préserve proportions) ===
+# === Stratified split ===
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-imputer = SimpleImputer(strategy="mean")  # ou "median" / "most_frequent"
+imputer = SimpleImputer(strategy="mean")  # I should test : "median" or "most_frequent"
 X_train_imputed = imputer.fit_transform(X_train)
 X_test_imputed = imputer.transform(X_test)
 
-# === Rééquilibrage avec SMOTE sur le train uniquement ===
+
+# === SMOTE Method only on the training set ===
 sm = SMOTE(random_state=42)
 X_res, y_res = sm.fit_resample(X_train_imputed, y_train)
 
 print(f"Taille avant SMOTE: {X_train.shape}, après SMOTE: {X_res.shape}")
 
-# === Entraînement ===
+# === Training ===
 rf = RandomForestClassifier(random_state=42)
 rf.fit(X_res, y_res)
 
-# === Prédictions probabilistes ===
+# === Predictions ===
 y_proba = rf.predict_proba(X_test_imputed)[:, 1]
 
 # === Test de plusieurs seuils ===
-thresholds = [0.5, 0.4, 0.3, 0.2]
+thresholds = [0.6]
 for t in thresholds:
     y_pred = (y_proba > t).astype(int)
     print(f"\n=== Threshold {t} ===")
@@ -60,4 +61,40 @@ plt.plot(rec, prec, label="PR curve")
 plt.xlabel("Recall")
 plt.ylabel("Precision")
 plt.title("Precision-Recall Curve")
+plt.show()
+
+
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+# === Research the best treshold ===
+best_threshold = 0.5
+best_f1 = 0
+
+thresholds = np.linspace(0, 1, 101)
+scores = []
+
+for t in thresholds:
+    y_pred = (y_proba >= t).astype(int)
+    prec = precision_score(y_test, y_pred, pos_label=1, zero_division=0)
+    rec = recall_score(y_test, y_pred, pos_label=1, zero_division=0)
+    f1 = f1_score(y_test, y_pred, pos_label=1, zero_division=0)
+    scores.append((t, prec, rec, f1))
+
+    if f1 > best_f1:
+        best_f1 = f1
+        best_threshold = t
+
+print(f"🚀 Meilleur seuil = {best_threshold:.2f} avec F1={best_f1:.3f}")
+
+# === Visualisation ===
+scores = np.array(scores)
+plt.figure(figsize=(8,5))
+plt.plot(scores[:,0], scores[:,1], label="Précision classe 1")
+plt.plot(scores[:,0], scores[:,2], label="Recall classe 1")
+plt.plot(scores[:,0], scores[:,3], label="F1 classe 1")
+plt.axvline(best_threshold, color="red", linestyle="--", label=f"Best={best_threshold:.2f}")
+plt.xlabel("Seuil de décision")
+plt.ylabel("Score")
+plt.title("Optimisation du seuil pour la classe 1")
+plt.legend()
 plt.show()
